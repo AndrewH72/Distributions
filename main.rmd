@@ -1,0 +1,61 @@
+# Libaries
+```{r}
+library("dgof")
+library("fitdistrplus")
+library("tidyr")
+library("ggplot2")
+library("dplyr")
+```
+
+
+# Histograms
+```{r}
+iris_df$Species <- NULL
+iris_gathered <- iris_df %>% gather(key = "key", value = "value")
+iris_gathered$value <- as.numeric(iris_gathered$value)
+
+fit_data <- iris_gathered %>% 
+    group_by(key) %>% 
+    summarise(
+        mean = mean(value, na.rm = TRUE),
+        sd = sd(value, na.rm = TRUE)
+    )
+density_data <- fit_data %>%
+    rowwise() %>%
+    mutate(
+        x = list(seq(min(iris_gathered$value[iris_gathered$key == key]),
+                     max(iris_gathered$value[iris_gathered$key == key]),
+                     length.out = 100)),
+        y = list(dnorm(x, mean = mean, sd =sd))
+    ) %>%
+    unnest(cols = c(x, y))
+
+ggplot(iris_gathered, aes(x = value)) + 
+    geom_histogram(aes(y = ..density..), bins = 10, color = "black", fill = "blue", alpha = 0.6) + 
+    geom_line(data = density_data, aes(x = x, y = y, group = key), color = "red", linewidth = 1) +
+    facet_wrap(~key, scales = "free_x")
+```
+
+
+#KS-Test
+```{r}
+iris_numeric <- iris_df %>% select_if(is.numeric)
+iris_numeric <- iris_numeric %>% mutate(across(everything(), ~ifelse(. <= 0, NA, .)))
+
+for(colname in colnames(iris_numeric)){
+    suppressWarnings({
+        ks_norm = ks.test(column_data, "pnorm", mean = fit_norm$estimate[1], sd = fit_norm$estimate[2])
+        ks_exp = ks.test(column_data, "pexp", rate = fit_exp$estimatep1)
+        ks_gamma = ks.test(column_data, "pgamma", shape = fit_gamma$estimate[1], rate = fit_gamma$estimate[2])
+    })
+    print(paste("KS Test for Normal Distribution on ", colname))
+    print(ks_norm)
+    
+    print(paste("KS Test for Exponential Distribution on ", colname))
+    print(ks_exp)
+    
+    print(paste("KS Test for Gamma Distribution on ", colname))
+    print(ks_gamma)
+}
+
+```
